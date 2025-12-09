@@ -47,6 +47,14 @@ results/
 *.toc
 *.lof
 *.lot
+*.nav
+*.snm
+
+# Large media files (use Git LFS if needed)
+*.mov
+*.mp4
+*.avi
+dataset/videoData/
 
 # OS
 .DS_Store
