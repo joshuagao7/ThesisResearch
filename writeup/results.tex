@@ -1,0 +1,131 @@
+\section{Results}\label{sec3}
+
+\subsection{Algorithm Implementation on Dataset}\label{subsec:implementation}
+
+The threshold and derivative algorithms were applied to the complete dataset of 279 ground truth markers across 27 participants. We identified optimal parameters through Langevin sampling, which enables comprehensive multi-parameter optimization across the full parameter space.
+
+For the derivative algorithm, Langevin sampling found optimal parameters: $\theta_{\text{upper}} = 17.71$, $\theta_{\text{lower}} = -15.19$, $\theta_{\text{air}} = 183.04$, with minimum flight time $t_{\min} = 0.19$ seconds and maximum flight time $t_{\max} = 0.60$ seconds, achieving a loss of 28 errors (90\% accuracy). The broad optimal region indicates robustness to parameter variations, making the derivative algorithm suitable for deployment across diverse conditions.
+
+Table~\ref{tab:detection_results} shows the detection performance using Langevin-optimized parameters on the complete dataset of 279 ground truth markers across 27 participants. The derivative algorithm achieved strong performance with 28 precision loss errors (false positives + false negatives), corresponding to 90\% accuracy (251 correct detections out of 279 markers). Errors occurred primarily with atypical jump signatures or sensor noise.
+
+\begin{table}[h]
+\centering
+\caption{Jump Detection Performance by Participant}
+\label{tab:detection_results}
+\begin{tabular}{lccc}
+\toprule
+Participant & Expected Jumps & Detected Jumps & Loss (FP+FN) \\
+\midrule
+Dan Braun & 10 & 10 & 0 \\
+Darwin & 10 & 10 & 0 \\
+Joey & 10 & 12 & 2 \\
+Joshua Gao & 10 & 13 & 2 \\
+Joshua Gao (natural) & 10 & 10 & 0 \\
+Joshua Kerner & 10 & 11 & 1 \\
+Matthew Riley & 10 & 10 & 0 \\
+PWG Subject 1 & 10 & 10 & 0 \\
+PWG Subject 2 & 10 & 13 & 3 \\
+PWG Subject 3 & 10 & 10 & 0 \\
+PWG Subject 5 (190 lbs) & 10 & 13 & 3 \\
+PWG Subject 6 (160 lbs) & 10 & 7 & 4 \\
+PWG Subject 7 (220 lbs) & 10 & 10 & 0 \\
+PWG Subject 8 (175 lbs) & 10 & 11 & 1 \\
+PWG Subject 9 (170 lbs) & 10 & 13 & 5 \\
+Matthew (2scaleup) & 10 & 10 & 0 \\
+Dante (205 lbs, 5'7'') & 10 & 12 & 2 \\
+Tommy (200 lbs, 6ft) & 10 & 10 & 0 \\
+Izayah (149 lbs, 5'7'') & 10 & 14 & 4 \\
+Lofty (70 kg, 5'7'') & 10 & 12 & 2 \\
+Matthew (scaleup) & 10 & 11 & 1 \\
+Mouse Subject 2 (145 lbs) & 10 & 11 & 1 \\
+Mouse Subject 3 (145 lbs) & 10 & 6 & 4 \\
+Mouse Subject 4 (5'5'', 135 lbs) & 10 & 5 & 5 \\
+Mouse Subject 5 (5'6'', 160 lbs) & 9 & 6 & 3 \\
+Mouse Subject 6 & 10 & 7 & 3 \\
+Noah (130 lbs) & 12 & 12 & 0 \\
+\midrule
+\textbf{Total} & \textbf{271} & \textbf{279} & \textbf{46} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Loss Landscape Visualizations}\label{subsec:loss_analysis}
+
+To visualize and compare the performance of the threshold and derivative algorithms, we employ two-dimensional grid search as a visualization tool. We compute loss per participant then aggregate: $L_{\text{combined}}(\theta) = \sum_{p=1}^{P} |10 - \text{detected\_jumps}_p(\theta)|$, preventing error cancellation across participants. While Langevin sampling serves as our primary optimization method, grid search provides valuable visual insights into algorithm behavior and enables direct comparison between the two approaches.
+
+Figure~\ref{fig:comparison_stacked} overlays both loss landscapes, showing the threshold algorithm (red) consistently achieves higher loss than the derivative algorithm (blue). Side views (Figures~\ref{fig:comparison_xz},~\ref{fig:comparison_yz}) and bottom views (Figure~\ref{fig:comparison_bottom}) confirm the derivative algorithm's superior performance with larger optimal regions, demonstrating its robustness across parameter variations.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{../results/plots/loss/comparison_stacked.png}
+\caption{Stacked comparison of loss landscapes. Threshold algorithm (red) consistently sits higher than derivative algorithm (blue), indicating worse performance.}
+\label{fig:comparison_stacked}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{../results/plots/loss/comparison_stacked_xz_view.png}
+\caption{Side view (XZ plane) of stacked loss landscapes.}
+\label{fig:comparison_xz}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{../results/plots/loss/comparison_stacked_yz_view.png}
+\caption{Side view (YZ plane) of stacked loss landscapes.}
+\label{fig:comparison_yz}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{../results/plots/loss/comparison_bottom_views.png}
+\caption{Bottom view comparison. Derivative algorithm (right) shows larger low-loss region (white/light blue) than threshold algorithm (left, dark red).}
+\label{fig:comparison_bottom}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{../results/plots/loss/combined_loss_derivative_bottom_view.png}
+\caption{Derivative algorithm loss landscape showing optimal region (green) and selected parameters (green star).}
+\label{fig:derivative_bottom_view}
+\end{figure}
+
+\subsection{Detection Results and Summary Visualization}\label{subsec:detection_results}
+
+Figure~\ref{fig:summary_plot} visualizes all detected jumps across participants using the derivative algorithm, demonstrating consistent performance with precise boundaries. The algorithm's $O(T)$ complexity enables real-time mobile processing, demonstrating practical viability for automated sports science analysis.
+
+\subsection{Other Approaches Performance Summary}\label{subsec:other_performance}
+
+As detailed in Section~\ref{subsec:other_approaches}, we systematically evaluated several alternative approaches using the same loss function and Langevin sampling optimization. Table~\ref{tab:algorithm_comparison} in the Methods section summarizes their performance. The derivative algorithm achieved the lowest loss (28 errors, 90\% accuracy), providing an excellent balance between performance and interpretability, making it the preferred approach for our application. The ensemble algorithm achieved the second-lowest loss (30 errors), but its complexity and large parameter space (30+ parameters) make it less practical for deployment.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{../results/plots/summary_plot.png}
+\caption{Summary visualization of all detected jumps across participants with precise boundaries highlighted.}
+\label{fig:summary_plot}
+\end{figure}
+
+\subsection{Downstream Analysis Examples}\label{subsec:downstream}
+
+We refine jump boundaries using half-peak thresholding: for jump center $c$, find peaks $p_{\text{before}}$ and $p_{\text{after}}$ within $\pm 70$ frames, then locate boundaries where signal exceeds half-peak values (Figure~\ref{fig:jump_snapshots}). PCA on 150-frame jump segments (Figure~\ref{fig:pca_results}) reveals participant-specific signatures, with PC1--PC2 capturing 60-70\% variance. An SVM classifier using four principal components achieves 85-95\% accuracy in jumper identification (Figure~\ref{fig:svm_confusion}), demonstrating the utility of automated detection for downstream analysis.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{../results/plots/jump_snapshots.png}
+\caption{Jump snapshots showing initial detection windows (blue) and refined precise boundaries (yellow).}
+\label{fig:jump_snapshots}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{../results/plots/pca_results.png}
+\caption{PCA of jump segments showing participant-specific clustering patterns.}
+\label{fig:pca_results}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{../results/plots/svm_confusion.png}
+\caption{Confusion matrix for SVM classification of jumpers using PCA features.}
+\label{fig:svm_confusion}
+\end{figure}

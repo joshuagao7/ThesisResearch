@@ -1,0 +1,121 @@
+\section{Methods}\label{sec2}
+
+GRF data was collected using a 48-sensor capacitive pressure plate sampled at 50~Hz. The sensors are arranged in a 6x8 grid. Raw data is loaded into matrix $\mathbf{D} \in \mathbb{R}^{T \times 48}$, then pooled into a single signal:
+\begin{equation}
+\bar{d}(t) = \sum_{i=1}^{48} D_{t,i}
+\end{equation}
+This preserves temporal dynamics while reducing sensor-specific noise.
+
+Two complementary algorithms operate on the pooled signal $\bar{d}(t)$, using physics-based constraints (flight time bounds: $t_{\min} \approx 0.2$~s, $t_{\max} \approx 1.2$~s) to filter spurious detections.
+
+\subsection{Threshold Algorithm}\label{subsec:threshold}
+
+The threshold algorithm identifies jumps by detecting periods where the pooled GRF signal falls below a critical threshold, indicating loss of ground contact. The algorithm implements a multi-stage filtering pipeline to ensure robust detection. The first stage applies a binary threshold to identify candidate flight periods:
+\begin{equation}
+m_{\text{threshold}}(t) = \begin{cases}
+1 & \text{if } \bar{d}(t) < \theta \\
+0 & \text{otherwise}
+\end{cases}
+\end{equation}
+where $\theta$ is the threshold parameter. Physics constraints filter segments outside $[t_{\min}, t_{\max}]$ to ensure detected jumps correspond to realistic flight times.
+
+\begin{description}
+\item[\textbf{Algorithm 1:} Threshold-Based Jump Detection]
+\item[\textbf{Input:}] Pooled signal $\bar{d}(t)$, threshold $\theta$
+\item[\textbf{Output:}] List of detected jumps $\mathcal{J}$
+\end{description}
+
+\begin{enumerate}
+\item Compute threshold mask: $m_{\text{threshold}}(t) \gets (\bar{d}(t) < \theta)$
+\item Apply physics constraints: $m_{\text{physics}}(t) \gets \text{filter}(m_{\text{threshold}}(t), t_{\min}, t_{\max})$
+\item Extract jump segments: $\mathcal{J} \gets \text{extract\_segments}(m_{\text{physics}}(t))$
+\item \textbf{return} $\mathcal{J}$
+\end{enumerate}
+
+\subsection{Derivative Algorithm}\label{subsec:derivative}
+
+The derivative algorithm employs a complementary strategy, focusing on the characteristic signature of jump initiation and landing in the derivative signal. During a jump, the GRF signal exhibits a rapid decrease at takeoff (negative derivative) followed by a rapid increase at landing (positive derivative). The algorithm first computes the derivative $d'(t)$ of the pooled signal. Two binary masks are created by thresholding the derivative:
+\begin{align}
+m_{\text{upper}}(t) &= \begin{cases}
+1 & \text{if } d'(t) > \theta_{\text{upper}} \\
+0 & \text{otherwise}
+\end{cases} \\
+m_{\text{lower}}(t) &= \begin{cases}
+1 & \text{if } d'(t) < \theta_{\text{lower}} \\
+0 & \text{otherwise}
+\end{cases}
+\end{align}
+
+The algorithm then pairs lower threshold crossings (takeoff) with subsequent upper threshold crossings (landing), subject to physics-based flight time constraints. Each valid pair $(t_{\text{lower}}, t_{\text{upper}})$ must satisfy:
+\begin{equation}
+t_{\min} \leq {t_{\text{upper}} - t_{\text{lower}}}\leq t_{\max}
+\end{equation}
+where $f_s = 50$~Hz is the sampling rate. To validate these pairs, the algorithm checks that the pooled signal falls below an in-air threshold $\theta_{\text{air}}$ during the flight phase:
+\begin{equation}
+\exists t \in [t_{\text{lower}}, t_{\text{upper}}] : \bar{d}(t) < \theta_{\text{air}}
+\end{equation}
+
+\begin{description}
+\item[\textbf{Algorithm 2:} Derivative-Based Jump Detection]
+\item[\textbf{Input:}] Pooled signal $\bar{d}(t)$, thresholds $\theta_{\text{upper}}$, $\theta_{\text{lower}}$, $\theta_{\text{air}}$
+\item[\textbf{Output:}] List of detected jumps $\mathcal{J}$
+\end{description}
+
+\begin{enumerate}
+\item Compute derivative: $d'(t) \gets \nabla \bar{d}(t)$
+\item Create upper mask: $m_{\text{upper}}(t) \gets (d'(t) > \theta_{\text{upper}})$
+\item Create lower mask: $m_{\text{lower}}(t) \gets (d'(t) < \theta_{\text{lower}})$
+\item Pair crossings: $\mathcal{P} \gets \text{pair\_crossings}(m_{\text{lower}}, m_{\text{upper}}, t_{\min}, t_{\max})$
+\item Validate pairs: $\mathcal{P}_{\text{valid}} \gets \{p \in \mathcal{P} : \text{in\_air}(\bar{d}, p, \theta_{\text{air}})\}$
+\item Convert to jumps: $\mathcal{J} \gets \text{pairs\_to\_jumps}(\mathcal{P}_{\text{valid}})$
+\item \textbf{return} $\mathcal{J}$
+\end{enumerate}
+
+Both algorithms operate in linear time $O(T)$ with respect to the number of samples $T$, making them suitable for real-time processing on mobile devices.
+
+\subsection{Parameter Optimization}\label{subsec:optimization}
+
+To systematically evaluate and compare algorithm performance, we require a quantitative measure of detection accuracy. We define a loss function based on precision metrics: false positives (detected jumps without corresponding ground truth markers) and false negatives (ground truth markers not captured by any detected jump).
+
+To compute these metrics, we manually annotate all jump events in our dataset, marking the precise frame indices where takeoff occurs. These annotations serve as ground truth labels against which we compare algorithm detections. For each detected jump, we check whether it contains any ground truth marker within its boundaries; if not, it is counted as a false positive. Similarly, each ground truth marker that falls outside all detected jump boundaries is counted as a false negative. The total loss is then:
+\begin{equation}
+L(\theta) = \text{FP}(\theta) + \text{FN}(\theta)
+\end{equation}
+where $\theta$ represents the algorithm parameters, and FP and FN are the counts of false positives and false negatives, respectively.
+
+For comprehensive optimization across all algorithm parameters simultaneously, we employ Langevin sampling---a stochastic optimization technique inspired by Langevin dynamics. This approach enables efficient exploration of high-dimensional parameter spaces (e.g., 5 parameters for the derivative algorithm: $\theta_{\text{upper}}$, $\theta_{\text{lower}}$, $\theta_{\text{air}}$, $t_{\min}$, $t_{\max}$) that would be computationally prohibitive with exhaustive grid search. The Langevin sampling strategy uses a Metropolis-Hastings acceptance criterion with a temperature schedule, allowing the algorithm to escape local minima and explore the parameter space more effectively than deterministic methods. We perform Langevin sampling with 10,000 iterations, using an initial temperature of 10.0 and exponential decay rate of 0.9995, to identify optimal parameter configurations that minimize the loss function $L(\theta)$.
+
+To visualize and compare the performance of the threshold and derivative algorithms, we employ two-dimensional grid search as a complementary visualization tool. We simplify each algorithm to two key parameters and perform exhaustive grid search: for the threshold algorithm, we search over threshold $\theta \in [90, 300]$ and derivative threshold $\delta \in [0, 100]$ (40 uniformly spaced values per dimension); for the derivative algorithm, we search over upper threshold $\theta_{\text{upper}} \in [0, 100]$ and lower threshold $\theta_{\text{lower}} \in [-100, 0]$ (40 values each). This two-dimensional grid search creates loss landscapes that can be visualized as surfaces, revealing regions of optimal performance and enabling direct visual comparison between the two algorithms. While grid search provides valuable insights into algorithm behavior, Langevin sampling serves as our primary method for comprehensive parameter optimization.
+
+\subsection{Other Approaches Considered}\label{subsec:other_approaches}
+
+In addition to the threshold and derivative algorithms, we explored several alternative approaches to jump detection, evaluating each using the same loss function $L(\theta) = \text{FP}(\theta) + \text{FN}(\theta)$ and Langevin sampling optimization. These approaches were systematically tested but did not achieve performance superior to the threshold and derivative algorithms.
+
+\textbf{Correlation Algorithm:} This approach employs template matching on the derivative signal, using a configurable template buffer that encodes the expected jump signature (preparation phase with negative values, transition phase with zeros, and jump phase with positive values). The algorithm computes the correlation (dot product) between the template and windows of the derivative signal, detecting jumps when correlation exceeds a threshold. Optimized parameters include buffer size, negative/zero/positive frame widths, and correlation threshold.
+
+\textbf{Hybrid Algorithm:} This method combines threshold-based takeoff detection with derivative-based landing detection. It identifies takeoff events when the pooled signal falls below a takeoff threshold, then pairs these with landing events detected via derivative threshold crossings. Parameters optimized include takeoff threshold, landing derivative threshold, in-air threshold, and flight time bounds.
+
+\textbf{Ensemble Algorithm:} This method combines multiple detection algorithms (threshold, derivative, correlation, hybrid) through weighted voting. Each algorithm contributes binary indicators for various conditions (e.g., threshold mask, derivative crossings, in-air periods), and these are combined with learned weights. Parameters include weights for 11 different conditions, score threshold, and flight time bounds.
+
+\textbf{Landing Derivative Algorithm:} This approach focuses exclusively on landing detection by identifying positive derivative threshold crossings (indicating rapid force increase at landing). Jump centers are calculated by offsetting backward from detected landing points. Parameters optimized include landing threshold, center offset, search window, in-air threshold, and flight time bounds.
+
+\begin{table}[h]
+\centering
+\caption{Algorithm Performance Comparison and Optimized Parameters}
+\label{tab:algorithm_comparison}
+\begin{tabular}{lcp{2.5cm}p{5.5cm}}
+\toprule
+Algorithm & Loss (FP+FN) & Optimization Method & Parameters Optimized \\
+\midrule
+Threshold & 107 & Langevin Sampling & Threshold $\theta$, derivative threshold $\delta$, flight time bounds $t_{\min}$, $t_{\max}$ \\
+Derivative & \textbf{28} & Langevin Sampling & Upper threshold $\theta_{\text{upper}}$, lower threshold $\theta_{\text{lower}}$, in-air threshold $\theta_{\text{air}}$, minimum flight time $t_{\min}$, maximum flight time $t_{\max}$ \\
+Correlation & 229 & Langevin Sampling & Buffer size $B$, negative frames $w_{\text{neg}}$, zero frames $w_{\text{zero}}$, positive frames $w_{\text{pos}}$, correlation threshold $\theta_{\text{corr}}$ \\
+Hybrid & 72 & Langevin Sampling & Takeoff threshold $\theta_{\text{takeoff}}$, landing derivative threshold $\theta_{\text{landing}}$, in-air threshold $\theta_{\text{air}}$, flight time bounds $t_{\min}$, $t_{\max}$ \\
+Ensemble & 30 & Langevin Sampling & Weights for 11 condition signals, score threshold, flight time bounds $t_{\min}$, $t_{\max}$ \\
+Landing Derivative & 34 & Langevin Sampling & Landing threshold $\theta_{\text{landing}}$, center offset, search window, in-air threshold $\theta_{\text{air}}$, flight time bounds $t_{\min}$, $t_{\max}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:algorithm_comparison} summarizes the performance of all approaches, showing that while these alternative methods provide valuable insights, the threshold and derivative algorithms emerged as the most effective approaches for our application. The derivative algorithm achieved the lowest loss (28 errors, 90\% accuracy), providing an excellent balance between performance and interpretability. The ensemble algorithm achieved the second-lowest loss (30 errors), but its complexity and large parameter space make it less practical for deployment.
+

@@ -1,0 +1,48 @@
+% Standard packages - optimized for clarity
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}  % High-quality vector fonts (should be crisp)
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{amsthm}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{indentfirst}  % Indent first paragraph of sections
+
+% Add space between paragraphs
+\setlength{\parskip}{0.5em}
+\setlength{\parindent}{0.5cm}  % Indent paragraphs
+
+% Adjust title page spacing
+\makeatletter
+\renewcommand{\@maketitle}{%
+  \newpage
+  \null
+  \vskip 2em%
+  \begin{center}%
+  \let \footnote \thanks
+    {\LARGE \@title \par}%
+    \vskip 1.5em%
+    {\large
+      \lineskip .5em%
+      \begin{tabular}[t]{c}%
+        \@author
+      \end{tabular}\par}%
+  \end{center}%
+  \par
+  \vskip 1.5em}
+\makeatother
+
+% Theorem environments
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}[theorem]{Proposition}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{example}{Example}
+
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}
+

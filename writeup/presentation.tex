@@ -1,0 +1,261 @@
+\documentclass[aspectratio=169]{beamer}
+
+% Theme and color scheme
+\usetheme{Madrid}
+\usecolortheme{default}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{tikz}
+
+% Title information
+\title[Pressure Sensor Data Analysis]{Pressure Sensor Data Analysis: Can We Teach Computers to Detect Jumps?}
+\author[Joshua Gao, Alexander Wei; Advisor: Larry Wilen]{Joshua Gao$^{1\star}$, Alexander Wei$^{1}$\\[0.5em]
+Advisor: Larry Wilen$^{1}$\\[0.5em]
+{\small $\star$ Submitted in partial fulfillment of the requirements for the Bachelor of Science degree}\\[0.5em]
+\small $^{1}$School of Engineering and Applied Science, Yale University}
+\date{}
+
+\begin{document}
+
+% Slide 1: Title
+\begin{frame}
+\titlepage
+\end{frame}
+
+% Slide 2: Motivation/Problem/Goal
+\begin{frame}{Motivation}
+\begin{itemize}
+    \item Athletic training has become increasingly data-driven
+    \item Three key steps: (1) data collection, (2) analysis, (3) translating insights
+    \item \textbf{Challenge:} Can we teach computers to do step 2 of this process?
+    \item \textbf{Raw Data:} Ground reaction forces collected from a 48-sensor pressure plate (50 Hz)
+\end{itemize}
+\end{frame}
+
+% Slide 3: Raw 48 Sensor Data
+\begin{frame}{Raw 48-Sensor Data}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.82\textheight,keepaspectratio]{../results/plots/presentation/raw_sensors.png}
+\end{center}
+\end{frame}
+
+% Slide 4: Raw Data with Average Signal
+\begin{frame}{Raw Data with Average Signal}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.82\textheight,keepaspectratio]{../results/plots/presentation/raw_with_pooled.png}
+\end{center}
+\begin{tikzpicture}[remember picture,overlay]
+    \node[anchor=south west] at ([xshift=0.5cm,yshift=0.3cm]current page.south west) {
+    \includegraphics[width=0.25\textwidth,keepaspectratio]{../results/plots/presentation/MNIST.png}
+    };
+    \end{tikzpicture}
+\end{frame}
+
+% Slide 5: Human Intuition
+\begin{frame}{Human Intuition for Analyzing Jumps}
+Vertical jumps exhibit a characteristic signature:
+\begin{enumerate}
+    \item Force build-up during countermovement and propulsion
+    \item Rapid unloading at takeoff
+    \item Near-zero force while airborne
+    \item Rapid reloading at landing
+\end{enumerate}
+\vspace{0.3cm}
+\textbf{Challenge:} While patterns are visually obvious to humans, automated detection in noisy real-world conditions is difficult.
+\end{frame}
+
+% Slide 6: Raw Data with Ground Truth Markers
+\begin{frame}{Raw Data with Ground Truth Jump Markers}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.82\textheight,keepaspectratio]{../results/plots/presentation/raw_with_annotations.png}
+\end{center}
+\end{frame}
+
+% Slide 7: Naive Threshold Detection
+\begin{frame}{Naive Threshold Detection (Threshold = 90) (21 Jumps Detected!)}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.82\textheight,keepaspectratio]{../results/plots/presentation/threshold_naive.png}
+\end{center}
+\end{frame}
+
+% Slide 8: Derivative Overlay
+\begin{frame}{Raw Data with Derivative Overlay}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.82\textheight,keepaspectratio]{../results/plots/presentation/derivative_overlay.png}
+\end{center}
+\end{frame}
+
+% Slide 9: Derivative Thresholds
+\begin{frame}{Derivative-Based Detection (Thresholds: +20 / -15) (13 Jumps Detected)}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.82\textheight,keepaspectratio]{../results/plots/presentation/derivative_thresholds.png}
+\end{center}
+\end{frame}
+
+% Slide 10: Threshold and Derivative Algorithms
+\begin{frame}{Threshold \& Derivative Algorithms}
+\textbf{Threshold Algorithm:}
+\begin{itemize}
+    \item Identifies flight periods when force falls below threshold $\theta$
+    \item Binary mask: $m_{\text{threshold}}(t) = 1$ if $\bar{d}(t) < \theta$
+    \item Filtered by physics constraints: $t_{\min} \approx 0.2$~s, $t_{\max} \approx 1.2$~s
+\end{itemize}
+\vspace{0.5cm}
+\textbf{Derivative Algorithm:}
+\begin{itemize}
+    \item Detects paired takeoff and landing events in derivative signal
+    \item Upper threshold: $d'(t) > \theta_{\text{upper}}$ (landing)
+    \item Lower threshold: $d'(t) < \theta_{\text{lower}}$ (takeoff)
+    \item Validated by in-air threshold: $\bar{d}(t) < \theta_{\text{air}}$ during flight
+\end{itemize}
+\vspace{0.3cm}
+Both algorithms operate in $O(T)$ time, enabling real-time mobile deployment.
+\end{frame}
+
+% Slide 11: Algorithm Comparison Table
+\begin{frame}{All Algorithms \& Parameters to Optimize}
+\footnotesize
+\begin{table}
+\centering
+\scalebox{0.85}{%
+\begin{tabular}{lp{5cm}p{5.5cm}}
+\toprule
+Algorithm & Brief Description & Parameters to Optimize \\
+\midrule
+\textbf{Threshold} & Identifies flight periods when force falls below threshold. Binary mask filtered by physics constraints. & Threshold $\theta$, derivative threshold $\delta$, minimum flight time $t_{\min}$, maximum flight time $t_{\max}$ \\
+\midrule
+\textbf{Derivative} & Detects paired takeoff and landing events in derivative signal using upper/lower thresholds, validated by in-air threshold. & Upper threshold $\theta_{\text{upper}}$, lower threshold $\theta_{\text{lower}}$, in-air threshold $\theta_{\text{air}}$, minimum flight time $t_{\min}$, maximum flight time $t_{\max}$ \\
+\midrule
+\textbf{Correlation} & Template matching on derivative signal using configurable buffer encoding jump signature (preparation, transition, jump phases). & Buffer size $B$, negative frames $w_{\text{neg}}$, zero frames $w_{\text{zero}}$, positive frames $w_{\text{pos}}$, correlation threshold $\theta_{\text{corr}}$ \\
+\midrule
+\textbf{Hybrid} & Combines threshold-based takeoff detection with derivative-based landing detection. Pairs takeoff events with landing events. & Takeoff threshold $\theta_{\text{takeoff}}$, landing derivative threshold $\theta_{\text{landing}}$, in-air threshold $\theta_{\text{air}}$, minimum flight time $t_{\min}$, maximum flight time $t_{\max}$ \\
+\midrule
+\textbf{Ensemble} & Combines multiple algorithms (threshold, derivative, correlation, hybrid) through weighted voting on binary condition indicators. & Weights for 11 condition signals, score threshold, minimum flight time $t_{\min}$, maximum flight time $t_{\max}$ \\
+\midrule
+\textbf{Landing Derivative} & Focuses exclusively on landing detection via positive derivative threshold crossings. Jump centers calculated by offsetting backward from landing points. & Landing threshold $\theta_{\text{landing}}$, center offset, search window, in-air threshold $\theta_{\text{air}}$, minimum flight time $t_{\min}$, maximum flight time $t_{\max}$ \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+\end{frame}
+
+% Slide 12: Scoring and Loss Function
+\begin{frame}{Scoring Each Algorithm: Loss Function}
+\textbf{Loss Function:}
+\begin{equation*}
+L(\theta) = \text{FP}(\theta) + \text{FN}(\theta)
+\end{equation*}
+\vspace{0.3cm}
+\begin{itemize}
+    \item \textbf{False Positives (FP):} Detected jumps without corresponding ground truth markers
+    \item \textbf{False Negatives (FN):} Ground truth markers not captured by any detected jump
+\end{itemize}
+\vspace{0.5cm}
+\textbf{Manual Tagging:} All jump events manually annotated in dataset
+\end{frame}
+
+% Slide 13: Grid Search Initial Parameters
+\begin{frame}{Means of Optimization: Grid Search Initial Parameters}
+\begin{center}
+\includegraphics[width=0.95\textwidth,height=0.70\textheight,keepaspectratio]{../results/plots/loss/comparison_stacked_xz_view.png}
+\end{center}
+\vspace{0.15cm}
+\footnotesize
+\textbf{Two-Dimensional Grid Search:} Threshold: $\theta \in [90, 300]$, $\delta \in [0, 100]$ (40 values each); Derivative: $\theta_{\text{upper}} \in [0, 100]$, $\theta_{\text{lower}} \in [-100, 0]$ (40 values each)\\[0.05cm]
+\end{frame}
+
+% Slide 14: Langevin Monte Carlo Sampling Methodology
+\begin{frame}{Langevin Monte Carlo Sampling Optimization}
+\textbf{Methodology:} Stochastic optimization technique inspired by Langevin dynamics for efficient exploration of high-dimensional parameter spaces.
+\vspace{0.3cm}
+\begin{itemize}
+    \item \textbf{Metropolis-Hastings acceptance criterion:} Accepts parameter changes that decrease loss, or probabilistically accepts increases based on temperature
+    \item \textbf{Temperature schedule:} Initial temperature 10.0 with exponential decay rate 0.9995 per iteration
+    \item \textbf{Escape from local minima:} Temperature schedule enables exploration beyond immediate improvements
+    \item \textbf{Comprehensive optimization:} 10,000 iterations for multi-parameter optimization across all algorithms
+\end{itemize}
+\vspace{0.2cm}
+\textbf{Advantages over grid search:}
+\begin{itemize}
+    \item Computationally feasible for high-dimensional spaces (e.g., 5+ parameters)
+    \item Efficiently explores parameter space without exhaustive enumeration
+    \item Finds optimal configurations that minimize loss function $L(\theta) = \text{FP}(\theta) + \text{FN}(\theta)$
+\end{itemize}
+\end{frame}
+
+% Slide 15: Results of Optimization
+\begin{frame}{Results}
+\begin{table}
+\centering
+\scalebox{0.95}{%
+\begin{tabular}{lcp{4.2cm}}
+\toprule
+\textbf{Algorithm} & \textbf{Loss} & \textbf{Parameters Optimized} \\
+\midrule
+\textbf{Threshold} & 107 & $\theta$, $\delta$, $t_{\min}$, $t_{\max}$ \\
+\textbf{Derivative} & \textbf{28} & $\theta_{\text{upper}}$, $\theta_{\text{lower}}$, $\theta_{\text{air}}$, $t_{\min}$, $t_{\max}$ \\
+\textbf{Correlation} & 229 & $B$, $w_{\text{neg}}$, $w_{\text{zero}}$, $w_{\text{pos}}$, $\theta_{\text{corr}}$ \\
+\textbf{Hybrid} & 72 & $\theta_{\text{takeoff}}$, $\theta_{\text{landing}}$, $\theta_{\text{air}}$, $t_{\min}$, $t_{\max}$ \\
+\textbf{Ensemble} & 30 & Weights (11), score threshold, $t_{\min}$, $t_{\max}$ \\
+\textbf{Landing Derivative} & 34 & $\theta_{\text{landing}}$, offset, window, $\theta_{\text{air}}$, $t_{\min}$, $t_{\max}$ \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+\end{frame}
+
+% Slide 16: Final Model Selection
+\begin{frame}{Final Model Selection \& Deployment}
+\begin{columns}
+\column{0.55\textwidth}
+\textbf{Optimized Parameters:}
+\begin{itemize}
+    \item $\theta_{\text{upper}} = 17.71$, $\theta_{\text{lower}} = -15.19$, $\theta_{\text{air}} = 183.04$
+    \item $t_{\min} = 0.19$~s, $t_{\max} = 0.60$~s
+\end{itemize}
+\vspace{0.3cm}
+\textbf{Implementation:}
+\begin{itemize}
+    \item JavaScript implementation for real-time processing
+    \item Deployed in \textbf{Vault One} mobile application
+    \item $O(T)$ complexity enables real-time mobile deployment
+    \item Used by trainers and athletes for immediate feedback
+\end{itemize}
+\vspace{0.3cm}
+
+\column{0.45\textwidth}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{storyPhotos/screenshot2.png}
+\end{center}
+\end{columns}
+\end{frame}
+
+% Slide 17: Thank You - Photos
+\begin{frame}{Thank You}
+\begin{columns}
+\column{0.5\textwidth}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.38\textheight,keepaspectratio]{storyPhotos/2300C09A-5B8D-4590-B922-EC9C2350CE91.JPG}
+\vspace{0.1cm}
+\includegraphics[width=\textwidth,height=0.38\textheight,keepaspectratio]{storyPhotos/7AD7385E-D3B0-46A3-AA54-D48EA3046729.JPG}
+\end{center}
+
+\column{0.5\textwidth}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.38\textheight,keepaspectratio]{storyPhotos/screenshot1.png}
+\vspace{0.1cm}
+% screenshot2.png temporarily commented out - needs to be downloaded from cloud storage
+% \includegraphics[width=\textwidth,height=0.38\textheight,keepaspectratio]{storyPhotos/screenshot2.png}
+\end{center}
+\end{columns}
+\end{frame}
+
+\end{document}
+
