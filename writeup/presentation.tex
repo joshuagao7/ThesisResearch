@@ -104,16 +104,16 @@ Vertical jumps exhibit a characteristic signature:
 \textbf{Threshold Algorithm:}
 \begin{itemize}
     \item Identifies flight periods when force falls below threshold $\theta$
-    \item Binary mask: $m_{\text{threshold}}(t) = 1$ if $\bar{d}(t) < \theta$
+    \item Binary mask: $m_{\text{threshold}}(t) = 1$ if $\bar{F}(t) < \theta$
     \item Filtered by physics constraints: $t_{\min} \approx 0.2$~s, $t_{\max} \approx 1.2$~s
 \end{itemize}
 \vspace{0.5cm}
 \textbf{Derivative Algorithm:}
 \begin{itemize}
     \item Detects paired takeoff and landing events in derivative signal
-    \item Upper threshold: $d'(t) > \theta_{\text{upper}}$ (landing)
-    \item Lower threshold: $d'(t) < \theta_{\text{lower}}$ (takeoff)
-    \item Validated by in-air threshold: $\bar{d}(t) < \theta_{\text{air}}$ during flight
+    \item Upper threshold: $F'(t) > \theta_{\text{upper}}$ (landing)
+    \item Lower threshold: $F'(t) < \theta_{\text{lower}}$ (takeoff)
+    \item Validated by in-air threshold: $\bar{F}(t) < \theta_{\text{air}}$ during flight
 \end{itemize}
 \vspace{0.3cm}
 Both algorithms operate in $O(T)$ time, enabling real-time mobile deployment.
@@ -201,7 +201,7 @@ L(\theta) = \text{FP}(\theta) + \text{FN}(\theta)
 \midrule
 \textbf{Threshold} & 107 & $\theta$, $\delta$, $t_{\min}$, $t_{\max}$ \\
 \textbf{Derivative} & \textbf{28} & $\theta_{\text{upper}}$, $\theta_{\text{lower}}$, $\theta_{\text{air}}$, $t_{\min}$, $t_{\max}$ \\
-\textbf{Correlation} & 229 & $B$, $w_{\text{neg}}$, $w_{\text{zero}}$, $w_{\text{pos}}$, $\theta_{\text{corr}}$ \\
+\textbf{Correlation} & 103 & $B$, $w_{\text{neg}}$, $w_{\text{zero}}$, $w_{\text{pos}}$, $\theta_{\text{corr}}$ \\
 \textbf{Hybrid} & 72 & $\theta_{\text{takeoff}}$, $\theta_{\text{landing}}$, $\theta_{\text{air}}$, $t_{\min}$, $t_{\max}$ \\
 \textbf{Ensemble} & 30 & Weights (11), score threshold, $t_{\min}$, $t_{\max}$ \\
 \textbf{Landing Derivative} & 34 & $\theta_{\text{landing}}$, offset, window, $\theta_{\text{air}}$, $t_{\min}$, $t_{\max}$ \\

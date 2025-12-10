@@ -441,10 +441,10 @@ def random_initial_parameters() -> dict[str, float]:
 
 def perturb_parameters(
     params: dict[str, float],
+    param_to_perturb: str,
     step_sizes: dict[str, float] | None = None,
-    perturbation_prob: float = 0.3,
 ) -> dict[str, float]:
-    """Randomly perturb parameters using Langevin-style noise."""
+    """Perturb a single parameter using Langevin-style noise."""
     if step_sizes is None:
         # Default step sizes: 5% of parameter range
         step_sizes = {}
@@ -453,22 +453,21 @@ def perturb_parameters(
     
     new_params = params.copy()
     
-    # Perturb each parameter independently with given probability
-    for param_name in new_params:
-        if random.random() < perturbation_prob:
-            if "window" in param_name or "frames" in param_name or "buffer_size" in param_name:
-                # Integer parameters: use discrete steps
-                step = max(1, int(step_sizes[param_name]))
-                noise = random.randint(-step, step)
-                new_value = new_params[param_name] + noise
-            else:
-                # Float parameters: use Gaussian noise
-                noise = np.random.normal(0, step_sizes[param_name])
-                new_value = new_params[param_name] + noise
-            
-            # Clip to bounds
-            min_val, max_val = PARAM_BOUNDS[param_name]
-            new_params[param_name] = np.clip(new_value, min_val, max_val)
+    # Perturb only the specified parameter
+    if param_to_perturb in new_params and param_to_perturb in step_sizes:
+        if "window" in param_to_perturb or "frames" in param_to_perturb or "buffer_size" in param_to_perturb:
+            # Integer parameters: use discrete steps
+            step = max(1, int(step_sizes[param_to_perturb]))
+            noise = random.randint(-step, step)
+            new_value = new_params[param_to_perturb] + noise
+        else:
+            # Float parameters: use Gaussian noise
+            noise = np.random.normal(0, step_sizes[param_to_perturb])
+            new_value = new_params[param_to_perturb] + noise
+        
+        # Clip to bounds
+        min_val, max_val = PARAM_BOUNDS[param_to_perturb]
+        new_params[param_to_perturb] = np.clip(new_value, min_val, max_val)
     
     # Ensure constraints
     # Flight time constraints
@@ -512,10 +511,12 @@ def langevin_sampling(
     temperature: float = 1.0,
     temperature_decay: float = 0.9995,
     step_sizes: dict[str, float] | None = None,
-    perturbation_prob: float = 0.3,
     show_progress: bool = True,
 ) -> tuple[list[dict], dict]:
-    """Langevin-inspired sampling strategy for parameter optimization."""
+    """Langevin-inspired sampling strategy for parameter optimization.
+    
+    Parameters are perturbed sequentially, cycling through all parameters.
+    """
     # Initialize parameters
     if initial_params is None:
         # Start from defaults with small perturbations for better starting point
@@ -593,12 +594,18 @@ def langevin_sampling(
         print(f"Total parameters: {len(current_params)}")
         print()
     
+    # Get parameter names for sequential cycling
+    param_names = list(current_params.keys())
+    
     for iteration in range(1, n_iterations + 1):
-        # Perturb parameters
+        # Select parameter to perturb sequentially (cycle through all parameters)
+        param_to_perturb = param_names[iteration % len(param_names)]
+        
+        # Perturb the selected parameter
         proposed_params = perturb_parameters(
             current_params,
+            param_to_perturb=param_to_perturb,
             step_sizes=step_sizes,
-            perturbation_prob=perturbation_prob,
         )
         
         # Compute loss for proposed parameters

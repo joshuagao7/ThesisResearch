@@ -208,23 +208,13 @@ def _run_correlation_pipeline(
     end_positive = min(start_positive + parameters.positive_frames, parameters.buffer_size)
     template[start_positive:end_positive] = 1.0
     
-    # Normalize template
-    template_norm = np.linalg.norm(template)
-    if template_norm > 0:
-        template = template / template_norm
-    
     # Perform correlation (template matching) on derivative signal
-    # Use normalized cross-correlation
     correlation_scores = np.zeros(len(derivative))
     
     for i in range(len(derivative) - parameters.buffer_size + 1):
         window = derivative[i:i + parameters.buffer_size]
-        window_norm = np.linalg.norm(window)
-        
-        if window_norm > 0:
-            window_normalized = window / window_norm
-            correlation = np.dot(template, window_normalized)
-            correlation_scores[i + parameters.buffer_size // 2] = correlation
+        correlation = np.dot(template, window)
+        correlation_scores[i + parameters.buffer_size // 2] = correlation
     
     # Find peaks above threshold
     above_threshold = correlation_scores > parameters.correlation_threshold

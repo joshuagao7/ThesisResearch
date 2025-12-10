@@ -179,15 +179,14 @@ def plot_combined_loss_landscapes(
         surf = ax.plot_surface(X, Y, Z, cmap=cmap, alpha=0.6, linewidth=0.1, antialiased=True)
         plot_surfaces.append((surf, label))
     
-    # Mark and label minimums
+    # Mark minimums (without labels)
     legend_elements = []
     for i, ((x, y, z), (label, color)) in enumerate(zip(min_positions, [(l, c) for _, _, _, _, l, c in surfaces])):
         ax.scatter([x], [y], [z], color=color, s=200, marker='*', edgecolors='white', linewidths=2)
-        ax.text(x, y, z, f'  {label}\n  min={min_losses[i]:.2f}', fontsize=9, color=color, weight='bold')
-        legend_elements.append(Patch(facecolor=color, alpha=0.6, label=f'{label} (min={min_losses[i]:.2f})'))
+        legend_elements.append(Patch(facecolor=color, alpha=0.6, label=f'{label}'))
     
-    ax.set_xlabel('Normalized Parameter 1 (0-1)', fontsize=12)
-    ax.set_ylabel('Normalized Parameter 2 (0-1)', fontsize=12)
+    ax.set_xlabel('', fontsize=12)
+    ax.set_ylabel('', fontsize=12)
     ax.set_zlabel('Precision Loss (FP + FN)', fontsize=12)
     ax.set_title('Combined Precision Loss Landscapes', fontsize=14, fontweight='bold')
     
@@ -195,13 +194,21 @@ def plot_combined_loss_landscapes(
         fig.colorbar(surf, ax=ax, shrink=0.3, aspect=15, label=f'{label} Loss', pad=0.02 + i*0.15)
     
     ax.legend(handles=legend_elements, loc='upper left', fontsize=10)
-    ax.text2D(0.02, 0.02,
-              'Threshold: X=Threshold (90-300), Y=Derivative Magnitude (0-100)\n'
-              'Derivative: X=Lower Threshold (-100 to 0), Y=Upper Threshold (0-100)\n'
-              'Correlation: X=Negative Frames (1-20), Y=Positive Frames (1-20)',
-              transform=ax.transAxes, fontsize=8,
-              bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8),
-              verticalalignment='bottom')
+    # Only show info for algorithms that are actually plotted
+    info_lines = []
+    if threshold_loss_grid is not None:
+        info_lines.append('Threshold: X=Threshold (30-500), Y=Derivative Magnitude (0-200)')
+    if derivative_loss_grid is not None:
+        info_lines.append('Derivative: X=Lower Threshold (-100 to 0), Y=Upper Threshold (0-100)')
+    if correlation_loss_grid is not None:
+        info_lines.append('Correlation: X=Negative Frames (1-20), Y=Positive Frames (1-20)')
+    
+    if info_lines:
+        ax.text2D(0.02, 0.02,
+                  '\n'.join(info_lines),
+                  transform=ax.transAxes, fontsize=8,
+                  bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8),
+                  verticalalignment='bottom')
     
     ax.view_init(elev=30, azim=45)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -218,16 +225,19 @@ def plot_combined_loss_landscapes(
     
     for i, ((x, y, z), (label, color)) in enumerate(zip(min_positions, [(l, c) for _, _, _, _, l, c in surfaces])):
         ax_side.scatter([x], [y], [z], color=color, s=200, marker='*', edgecolors='white', linewidths=2)
-        ax_side.text(x, y, z, f'  {label[0]}={min_losses[i]:.2f}', fontsize=10, color=color, weight='bold')
     
-    ax_side.set_xlabel('Normalized Parameter 1 (0-1)', fontsize=12)
-    ax_side.set_ylabel('Normalized Parameter 2 (0-1)', fontsize=12)
+    ax_side.set_xlabel('', fontsize=12)
+    ax_side.set_ylabel('', fontsize=12)
     ax_side.set_zlabel('Precision Loss (FP + FN)', fontsize=12)
     ax_side.set_title('Combined Loss Landscapes - Side View (Orthographic)', fontsize=14, fontweight='bold')
     ax_side.legend(handles=legend_elements, loc='upper left', fontsize=10)
     ax_side.view_init(elev=0, azim=0)
     
-    side_output_path = output_path.parent / f"{output_path.stem}_side_view.png"
+    # For the comparison plot, save side view with the expected filename
+    if "comparison_stacked_xz_view" in str(output_path):
+        side_output_path = output_path  # Save side view as the main comparison file
+    else:
+        side_output_path = output_path.parent / f"{output_path.stem}_side_view.png"
     plt.savefig(side_output_path, dpi=300, bbox_inches='tight')
     print(f"Saved side view plot to {side_output_path}")
     plt.close(fig_side)
@@ -352,14 +362,16 @@ def main() -> None:
         )
         print(f"  ✓ Saved correlation 3D plot to: {OUTPUT_DIR / 'combined_loss_correlation_optimized_3d.png'}")
     
-    # Create combined overlay plot if multiple algorithms selected
-    if len(selected_algorithms) > 1:
+    # Create combined overlay plot if multiple algorithms selected (excluding correlation)
+    # Only include threshold and derivative for the combined plot
+    combined_algorithms = [alg for alg in selected_algorithms if alg in ["threshold", "derivative"]]
+    if len(combined_algorithms) > 1:
         print("\n" + "="*80)
-        print("CREATING COMBINED OVERLAY PLOT")
+        print("CREATING COMBINED OVERLAY PLOT (Threshold + Derivative)")
         print("="*80)
         plot_combined_loss_landscapes(
-            threshold_loss_grid, derivative_loss_grid, correlation_loss_grid,
-            OUTPUT_DIR / "combined_precision_loss_all_algorithms.png",
+            threshold_loss_grid, derivative_loss_grid, None,  # Exclude correlation
+            OUTPUT_DIR / "comparison_stacked_xz_view.png",  # Match filename in results.tex
             show_interactive=False
         )
 

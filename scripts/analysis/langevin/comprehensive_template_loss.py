@@ -227,28 +227,28 @@ def default_initial_parameters(n_sensors: int) -> dict[str, object]:
 
 def perturb_parameters(
     params: dict[str, object],
+    param_to_perturb: str,
     n_sensors: int,
-    perturbation_prob: float = 0.1,  # Lower probability for arrays
     step_size: float = 0.05,
 ) -> dict[str, object]:
-    """Randomly perturb parameters using Langevin-style noise."""
+    """Perturb a single parameter group using Langevin-style noise."""
     new_params = params.copy()
     
     # Perturb time weights
-    if random.random() < perturbation_prob:
+    if param_to_perturb == "takeoff_time_weights":
         takeoff_time = np.array(new_params["takeoff_time_weights"])
         noise = np.random.normal(0, step_size, size=takeoff_time.shape)
         takeoff_time = np.clip(takeoff_time + noise, *TIME_WEIGHT_BOUNDS)
         new_params["takeoff_time_weights"] = takeoff_time.tolist()
     
-    if random.random() < perturbation_prob:
+    if param_to_perturb == "landing_time_weights":
         landing_time = np.array(new_params["landing_time_weights"])
         noise = np.random.normal(0, step_size, size=landing_time.shape)
         landing_time = np.clip(landing_time + noise, *TIME_WEIGHT_BOUNDS)
         new_params["landing_time_weights"] = landing_time.tolist()
     
     # Perturb sensor weights
-    if random.random() < perturbation_prob:
+    if param_to_perturb == "takeoff_sensor_weights":
         takeoff_sensor = np.array(new_params["takeoff_sensor_weights"])
         if len(takeoff_sensor) < n_sensors:
             padded = np.zeros(n_sensors)
@@ -260,7 +260,7 @@ def perturb_parameters(
         takeoff_sensor = np.clip(takeoff_sensor + noise, *SENSOR_WEIGHT_BOUNDS)
         new_params["takeoff_sensor_weights"] = takeoff_sensor.tolist()
     
-    if random.random() < perturbation_prob:
+    if param_to_perturb == "landing_sensor_weights":
         landing_sensor = np.array(new_params["landing_sensor_weights"])
         if len(landing_sensor) < n_sensors:
             padded = np.zeros(n_sensors)
@@ -273,26 +273,26 @@ def perturb_parameters(
         new_params["landing_sensor_weights"] = landing_sensor.tolist()
     
     # Perturb thresholds
-    if random.random() < 0.3:
+    if param_to_perturb == "takeoff_threshold":
         noise = np.random.normal(0, step_size)
         new_params["takeoff_threshold"] = float(np.clip(
             new_params["takeoff_threshold"] + noise, *THRESHOLD_BOUNDS
         ))
     
-    if random.random() < 0.3:
+    if param_to_perturb == "landing_threshold":
         noise = np.random.normal(0, step_size)
         new_params["landing_threshold"] = float(np.clip(
             new_params["landing_threshold"] + noise, *THRESHOLD_BOUNDS
         ))
     
     # Perturb flight times
-    if random.random() < 0.3:
+    if param_to_perturb == "min_flight_time":
         noise = np.random.normal(0, 0.02)
         new_params["min_flight_time"] = float(np.clip(
             new_params["min_flight_time"] + noise, *FLIGHT_TIME_BOUNDS
         ))
     
-    if random.random() < 0.3:
+    if param_to_perturb == "max_flight_time":
         noise = np.random.normal(0, 0.02)
         new_params["max_flight_time"] = float(np.clip(
             new_params["max_flight_time"] + noise, *FLIGHT_TIME_BOUNDS
@@ -316,11 +316,13 @@ def langevin_sampling(
     initial_params: dict[str, object] | None = None,
     temperature: float = 1.0,
     temperature_decay: float = 0.9995,
-    perturbation_prob: float = 0.1,
     step_size: float = 0.05,
     show_progress: bool = True,
 ) -> tuple[list[dict], dict]:
-    """Langevin-inspired sampling strategy for parameter optimization."""
+    """Langevin-inspired sampling strategy for parameter optimization.
+    
+    Parameters are perturbed sequentially, cycling through all parameter groups.
+    """
     n_sensors = concatenated_data.shape[1]
     
     # Initialize parameters
@@ -358,12 +360,27 @@ def langevin_sampling(
         print(f"Total parameters: ~{TEMPLATE_SIZE * 2 + n_sensors * 2 + 4}")
         print()
     
+    # Define parameter groups to cycle through sequentially
+    param_groups = [
+        "takeoff_time_weights",
+        "landing_time_weights",
+        "takeoff_sensor_weights",
+        "landing_sensor_weights",
+        "takeoff_threshold",
+        "landing_threshold",
+        "min_flight_time",
+        "max_flight_time",
+    ]
+    
     for iteration in range(1, n_iterations + 1):
-        # Perturb parameters
+        # Select parameter group to perturb sequentially (cycle through all groups)
+        param_to_perturb = param_groups[iteration % len(param_groups)]
+        
+        # Perturb the selected parameter group
         proposed_params = perturb_parameters(
             current_params,
+            param_to_perturb=param_to_perturb,
             n_sensors=n_sensors,
-            perturbation_prob=perturbation_prob,
             step_size=step_size,
         )
         

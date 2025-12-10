@@ -19,9 +19,17 @@ from jump_detection.algorithms.derivative import (
     DerivativeParameters,
     detect_derivative_jumps,
 )
+from jump_detection.algorithms.threshold import (
+    ThresholdParameters,
+    detect_threshold_jumps,
+)
+from jump_detection.algorithms.correlation import (
+    CorrelationParameters,
+    detect_correlation_jumps,
+)
 from jump_detection.config import DATASET_ROOT
 from jump_detection.data import load_dataset
-from jump_detection.utils import PRIMARY_BLUE, PRIMARY_RED, PRIMARY_ORANGE
+from jump_detection.utils import PRIMARY_BLUE, PRIMARY_RED, PRIMARY_ORANGE, PRIMARY_YELLOW
 
 # Set up matplotlib style
 plt.rcParams['font.family'] = 'sans-serif'
@@ -187,6 +195,11 @@ def generate_presentation_figures():
     plot_derivative_overlay(raw_data, derivative, detected_jumps, output_dir)
     plot_derivative_thresholds(derivative, detected_jumps, ground_truth_markers, output_dir)
     
+    # Generate unified algorithm visualization plots
+    plot_threshold_unified(raw_data, data_path, output_dir)
+    plot_derivative_unified(raw_data, data_path, derivative, params, output_dir)
+    plot_correlation_unified(raw_data, data_path, output_dir)
+    
     print(f"All figures saved to {output_dir}")
 
 
@@ -313,22 +326,17 @@ def plot_threshold_naive(raw_data: np.ndarray, pooled: np.ndarray, output_dir: P
     if in_region:
         regions.append((start_idx, len(below_threshold) - 1))
     
-    # Highlight regions
-    for start, end in regions:
-        ax.axvspan(start, end, alpha=0.2, color=PRIMARY_RED, 
-                   label="Naive Threshold Detection" if start == regions[0][0] else "")
-    
     # Count number of detected jumps
     num_jumps = len(regions)
     
+    # Highlight regions
+    for start, end in regions:
+        ax.axvspan(start, end, alpha=0.2, color=PRIMARY_BLUE, 
+                   label="Naive Threshold Detection" if start == regions[0][0] else "")
+    
     ax.set_xlabel("Frame", fontsize=12)
     ax.set_ylabel("Sensor Value", fontsize=12)
-    ax.set_title("Raw Data with Naive Threshold (90)", fontsize=14, fontweight='bold')
-    # Add number of detected jumps in top right
-    ax.text(0.98, 0.98, f"Detected Jumps: {num_jumps}", 
-            transform=ax.transAxes, fontsize=12, fontweight='bold',
-            horizontalalignment='right', verticalalignment='top',
-            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='black'))
+    ax.set_title(f"Raw Data with Naive Threshold (90) ({num_jumps} Jumps Detected)", fontsize=14, fontweight='bold')
     ax.legend(loc='upper right', fontsize=10)
     ax.grid(True, alpha=0.3)
     
@@ -393,15 +401,18 @@ def plot_derivative_thresholds(derivative: np.ndarray, detected_jumps: list,
                linewidth=2, alpha=0.8, label=f"Lower Threshold ({lower_threshold})")
     ax.axhline(y=0, color='black', linestyle='-', linewidth=0.5, alpha=0.3)
     
+    # Count number of detected jumps
+    num_jumps = len(detected_jumps)
+    
     # Highlight detected jumps
     for jump in detected_jumps:
         if jump.start < jump.end:
             ax.axvspan(jump.start, jump.end, alpha=0.2, color=PRIMARY_BLUE,
                       label="Detected Jump" if jump == detected_jumps[0] else "")
             # Mark takeoff (lower threshold crossing) and landing (upper threshold crossing)
-            ax.axvline(jump.start, color=PRIMARY_BLUE, linewidth=2, 
+            ax.axvline(jump.start, color=PRIMARY_RED, linewidth=2, 
                       linestyle='--', alpha=0.7)
-            ax.axvline(jump.end, color=PRIMARY_BLUE, linewidth=2, 
+            ax.axvline(jump.end, color=PRIMARY_RED, linewidth=2, 
                       linestyle='--', alpha=0.7)
     
     # Plot ground truth markers
@@ -416,17 +427,9 @@ def plot_derivative_thresholds(derivative: np.ndarray, detected_jumps: list,
                        markersize=15, markeredgewidth=1.5, markeredgecolor='white',
                        zorder=10)
     
-    # Count number of detected jumps
-    num_jumps = len(detected_jumps)
-    
     ax.set_xlabel("Frame", fontsize=12)
     ax.set_ylabel("Derivative Value", fontsize=12)
-    ax.set_title("Derivative with Thresholds (+20 / -15)", fontsize=14, fontweight='bold')
-    # Add number of detected jumps in top right
-    ax.text(0.98, 0.98, f"Detected Jumps: {num_jumps}", 
-            transform=ax.transAxes, fontsize=12, fontweight='bold',
-            horizontalalignment='right', verticalalignment='top',
-            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='black'))
+    ax.set_title(f"Derivative with Thresholds (+20 / -15) ({num_jumps} Jumps Detected)", fontsize=14, fontweight='bold')
     ax.legend(loc='upper right', fontsize=9)
     ax.grid(True, alpha=0.3)
     ax.set_ylim(-100, 100)  # Match the style from pipeline plots
@@ -435,6 +438,176 @@ def plot_derivative_thresholds(derivative: np.ndarray, detected_jumps: list,
     plt.savefig(output_dir / "derivative_thresholds.png", dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Saved: {output_dir / 'derivative_thresholds.png'}")
+
+
+def plot_threshold_unified(raw_data: np.ndarray, data_path: Path, output_dir: Path):
+    """Unified threshold algorithm plot with multisensor background, pooled signal, threshold, and jump boundaries."""
+    fig, ax = plt.subplots(figsize=(16, 6))
+    
+    # Plot all 48 sensor channels in background
+    for channel in range(raw_data.shape[1]):
+        ax.plot(raw_data[:, channel], linewidth=0.5, alpha=0.7, color='gray')
+    
+    # Compute pooled signal
+    pooled = raw_data.sum(axis=1)
+    
+    # Run threshold algorithm
+    threshold_value = 90
+    threshold_params = ThresholdParameters(
+        threshold=threshold_value,
+        min_flight_time=0.2,
+        max_flight_time=1.2,
+    )
+    threshold_result = detect_threshold_jumps(data_path, params=threshold_params)
+    detected_jumps = threshold_result.jumps
+    
+    # Plot pooled signal overlay
+    ax.plot(pooled, linewidth=2, color=PRIMARY_BLUE, alpha=0.9, 
+            label="Pooled Signal")
+    
+    # Add threshold line
+    ax.axhline(y=threshold_value, color=PRIMARY_RED, linestyle="--", 
+               linewidth=2, alpha=0.8, label=f"Threshold ({threshold_value})")
+    
+    # Count number of detected jumps
+    num_jumps = len(detected_jumps)
+    
+    # Highlight detected jump boundaries
+    for i, jump in enumerate(detected_jumps):
+        if jump.start < jump.end:
+            ax.axvspan(jump.start, jump.end, alpha=0.2, color=PRIMARY_BLUE,
+                      label="Detected Jump" if i == 0 else "")
+            ax.axvline(jump.start, color=PRIMARY_RED, linewidth=2, 
+                      linestyle='--', alpha=0.7)
+            ax.axvline(jump.end, color=PRIMARY_RED, linewidth=2, 
+                      linestyle='--', alpha=0.7)
+    
+    ax.set_xlabel("Frame", fontsize=12)
+    ax.set_ylabel("Sensor Value", fontsize=12)
+    ax.set_title(f"Threshold Algorithm Detection ({num_jumps} Jumps Detected)", fontsize=14, fontweight='bold')
+    ax.legend(loc='upper right', fontsize=10)
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(output_dir / "threshold_unified.png", dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Saved: {output_dir / 'threshold_unified.png'}")
+
+
+def plot_derivative_unified(raw_data: np.ndarray, data_path: Path, 
+                            derivative: np.ndarray, derivative_params: DerivativeParameters,
+                            output_dir: Path):
+    """Unified derivative algorithm plot with multisensor background, derivative overlay, thresholds, and jump boundaries."""
+    fig, ax1 = plt.subplots(figsize=(16, 6))
+    
+    # Plot all 48 sensor channels in background
+    for channel in range(raw_data.shape[1]):
+        ax1.plot(raw_data[:, channel], linewidth=0.5, alpha=0.7, color='gray')
+    
+    ax1.set_xlabel("Frame", fontsize=12)
+    ax1.set_ylabel("Sensor Value", fontsize=12, color='black')
+    ax1.tick_params(axis='y', labelcolor='black')
+    
+    # Run derivative detection algorithm
+    derivative_result = detect_derivative_jumps(data_path, params=derivative_params)
+    detected_jumps = derivative_result.jumps
+    
+    # Plot derivative on secondary axis
+    ax2 = ax1.twinx()
+    ax2.plot(derivative, linewidth=2, color=PRIMARY_ORANGE, alpha=0.8, label="Derivative")
+    ax2.set_ylabel("Derivative Value", fontsize=12, color=PRIMARY_ORANGE)
+    ax2.tick_params(axis='y', labelcolor=PRIMARY_ORANGE)
+    ax2.axhline(y=0, color='black', linestyle='-', linewidth=0.5, alpha=0.3)
+    
+    # Add threshold lines
+    upper_threshold = derivative_params.upper_threshold
+    lower_threshold = derivative_params.lower_threshold
+    ax2.axhline(y=upper_threshold, color=PRIMARY_RED, linestyle="--", 
+               linewidth=2, alpha=0.8, label=f"Upper Threshold (+{upper_threshold})")
+    ax2.axhline(y=lower_threshold, color=PRIMARY_RED, linestyle="--", 
+               linewidth=2, alpha=0.8, label=f"Lower Threshold ({lower_threshold})")
+    ax2.set_ylim(-100, 100)
+    
+    # Count number of detected jumps
+    num_jumps = len(detected_jumps)
+    
+    # Highlight detected jump boundaries
+    for i, jump in enumerate(detected_jumps):
+        if jump.start < jump.end:
+            ax1.axvspan(jump.start, jump.end, alpha=0.2, color=PRIMARY_BLUE,
+                       label="Detected Jump" if i == 0 else "")
+            ax1.axvline(jump.start, color=PRIMARY_RED, linewidth=2, 
+                      linestyle='--', alpha=0.7)
+            ax1.axvline(jump.end, color=PRIMARY_RED, linewidth=2, 
+                      linestyle='--', alpha=0.7)
+    
+    ax1.set_title(f"Derivative Algorithm Detection ({num_jumps} Jumps Detected)", fontsize=14, fontweight='bold')
+    ax2.legend(loc='upper right', fontsize=10)
+    ax1.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(output_dir / "derivative_unified.png", dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Saved: {output_dir / 'derivative_unified.png'}")
+
+
+def plot_correlation_unified(raw_data: np.ndarray, data_path: Path, output_dir: Path):
+    """Unified correlation algorithm plot with multisensor background, correlation scores overlay, threshold, and jump boundaries."""
+    fig, ax1 = plt.subplots(figsize=(16, 6))
+    
+    # Plot all 48 sensor channels in background
+    for channel in range(raw_data.shape[1]):
+        ax1.plot(raw_data[:, channel], linewidth=0.5, alpha=0.7, color='gray')
+    
+    ax1.set_xlabel("Frame", fontsize=12)
+    ax1.set_ylabel("Sensor Value", fontsize=12, color='black')
+    ax1.tick_params(axis='y', labelcolor='black')
+    
+    # Run correlation detection algorithm
+    correlation_params = CorrelationParameters()
+    correlation_result = detect_correlation_jumps(data_path, params=correlation_params)
+    detected_jumps = correlation_result.jumps
+    
+    # Get correlation scores from signals
+    signals = correlation_result.signals
+    correlation_scores = signals.get("correlation_scores", np.array([]))
+    
+    # Count number of detected jumps
+    num_jumps = len(detected_jumps)
+    
+    # Plot correlation scores on secondary axis
+    ax2 = ax1.twinx()
+    if len(correlation_scores) > 0:
+        ax2.plot(correlation_scores, linewidth=2, color=PRIMARY_RED, alpha=0.8, 
+                label="Correlation Score")
+        ax2.set_ylabel("Correlation Score", fontsize=12, color=PRIMARY_RED)
+        ax2.tick_params(axis='y', labelcolor=PRIMARY_RED)
+        ax2.axhline(y=0, color='black', linestyle='-', linewidth=0.5, alpha=0.3)
+        
+        # Add correlation threshold line
+        threshold = correlation_params.correlation_threshold
+        ax2.axhline(y=threshold, color=PRIMARY_RED, linestyle="--", 
+                   linewidth=2, alpha=0.8, label=f"Correlation Threshold ({threshold:.1f})")
+    
+    # Highlight detected jump boundaries
+    for i, jump in enumerate(detected_jumps):
+        if jump.start < jump.end:
+            ax1.axvspan(jump.start, jump.end, alpha=0.2, color=PRIMARY_BLUE,
+                       label="Detected Jump" if i == 0 else "")
+            ax1.axvline(jump.start, color=PRIMARY_RED, linewidth=2, 
+                      linestyle='--', alpha=0.7)
+            ax1.axvline(jump.end, color=PRIMARY_RED, linewidth=2, 
+                      linestyle='--', alpha=0.7)
+    
+    ax1.set_title(f"Correlation Algorithm Detection ({num_jumps} Jumps Detected)", fontsize=14, fontweight='bold')
+    if len(correlation_scores) > 0:
+        ax2.legend(loc='upper right', fontsize=10)
+    ax1.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(output_dir / "correlation_unified.png", dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Saved: {output_dir / 'correlation_unified.png'}")
 
 
 if __name__ == "__main__":

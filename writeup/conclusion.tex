@@ -1,0 +1,7 @@
+\section{Conclusion}\label{sec:conclusion}
+
+This paper introduces a lightweight, interpretable framework for automated jump detection in ground reaction force data. By mimicking human intuition through simple signal-processing rules and physics-informed constraints, we achieve strong performance on 279 jumps across 27 participants, while maintaining $O(T)$ complexity suitable for real-time mobile deployment.
+
+The framework's contributions are threefold: (1) encoding human-intuitive pattern detection as interpretable algorithms, providing an alternative to black-box machine learning; (2) comprehensive parameter optimization via Langevin sampling with grid search visualization for algorithm comparison; and (3) validation on real-world data.
+
+While the framework achieves strong performance, there is room for improvement. Human analysts can often distinguish jump events that algorithms miss, suggesting there may be additional contextual information or levels of judgment not yet captured. Future work could explore more sophisticated approaches such as machine learning or sliding window analysis, though these may sacrifice the interpretability and generalizability that make the current approach valuable. The dataset and code are available at \url{https://github.com/joshuagao7/thesisresearch}.

@@ -1,131 +1,90 @@
-\section{Results}\label{sec3}
+\section{Results and Discussion}\label{sec3}
 
 \subsection{Algorithm Implementation on Dataset}\label{subsec:implementation}
 
-The threshold and derivative algorithms were applied to the complete dataset of 279 ground truth markers across 27 participants. We identified optimal parameters through Langevin sampling, which enables comprehensive multi-parameter optimization across the full parameter space.
+Each algorithm was applied to the complete dataset of 279 ground truth markers across 27 participants. We identified optimal parameters through Langevin sampling, which enables comprehensive multi-parameter optimization across the full parameter space.
 
-For the derivative algorithm, Langevin sampling found optimal parameters: $\theta_{\text{upper}} = 17.71$, $\theta_{\text{lower}} = -15.19$, $\theta_{\text{air}} = 183.04$, with minimum flight time $t_{\min} = 0.19$ seconds and maximum flight time $t_{\max} = 0.60$ seconds, achieving a loss of 28 errors (90\% accuracy). The broad optimal region indicates robustness to parameter variations, making the derivative algorithm suitable for deployment across diverse conditions.
-
-Table~\ref{tab:detection_results} shows the detection performance using Langevin-optimized parameters on the complete dataset of 279 ground truth markers across 27 participants. The derivative algorithm achieved strong performance with 28 precision loss errors (false positives + false negatives), corresponding to 90\% accuracy (251 correct detections out of 279 markers). Errors occurred primarily with atypical jump signatures or sensor noise.
 
 \begin{table}[h]
-\centering
-\caption{Jump Detection Performance by Participant}
-\label{tab:detection_results}
-\begin{tabular}{lccc}
-\toprule
-Participant & Expected Jumps & Detected Jumps & Loss (FP+FN) \\
-\midrule
-Dan Braun & 10 & 10 & 0 \\
-Darwin & 10 & 10 & 0 \\
-Joey & 10 & 12 & 2 \\
-Joshua Gao & 10 & 13 & 2 \\
-Joshua Gao (natural) & 10 & 10 & 0 \\
-Joshua Kerner & 10 & 11 & 1 \\
-Matthew Riley & 10 & 10 & 0 \\
-PWG Subject 1 & 10 & 10 & 0 \\
-PWG Subject 2 & 10 & 13 & 3 \\
-PWG Subject 3 & 10 & 10 & 0 \\
-PWG Subject 5 (190 lbs) & 10 & 13 & 3 \\
-PWG Subject 6 (160 lbs) & 10 & 7 & 4 \\
-PWG Subject 7 (220 lbs) & 10 & 10 & 0 \\
-PWG Subject 8 (175 lbs) & 10 & 11 & 1 \\
-PWG Subject 9 (170 lbs) & 10 & 13 & 5 \\
-Matthew (2scaleup) & 10 & 10 & 0 \\
-Dante (205 lbs, 5'7'') & 10 & 12 & 2 \\
-Tommy (200 lbs, 6ft) & 10 & 10 & 0 \\
-Izayah (149 lbs, 5'7'') & 10 & 14 & 4 \\
-Lofty (70 kg, 5'7'') & 10 & 12 & 2 \\
-Matthew (scaleup) & 10 & 11 & 1 \\
-Mouse Subject 2 (145 lbs) & 10 & 11 & 1 \\
-Mouse Subject 3 (145 lbs) & 10 & 6 & 4 \\
-Mouse Subject 4 (5'5'', 135 lbs) & 10 & 5 & 5 \\
-Mouse Subject 5 (5'6'', 160 lbs) & 9 & 6 & 3 \\
-Mouse Subject 6 & 10 & 7 & 3 \\
-Noah (130 lbs) & 12 & 12 & 0 \\
-\midrule
-\textbf{Total} & \textbf{271} & \textbf{279} & \textbf{46} \\
-\bottomrule
-\end{tabular}
-\end{table}
+    \centering
+    \caption{Algorithm Performance After Optimization}
+    \label{tab:algorithm_results}
+    \begin{tabular}{lcp{4.2cm}}
+    \toprule
+    \textbf{Algorithm} & \textbf{Loss} & \textbf{Parameters Optimized} \\
+    \midrule
+    \textbf{Threshold} & 107 & $\theta$, $\delta$, $t_{\min}$, $t_{\max}$ \\
+    \textbf{Derivative} & \textbf{28} & $\theta_{\text{upper}}$, $\theta_{\text{lower}}$, $\theta_{\text{air}}$, $t_{\min}$, $t_{\max}$ \\
+    \textbf{Correlation} & 103 & $B$, $w_{\text{neg}}$, $w_{\text{zero}}$, $w_{\text{pos}}$, $\theta_{\text{corr}}$ \\
+    \textbf{Landing Derivative} & 34 & $\theta_{\text{landing}}$, offset, window, $\theta_{\text{air}}$, $t_{\min}$, $t_{\max}$ \\
+    \textbf{Ensemble} & 30 & Weights (11), score threshold, $t_{\min}$, $t_{\max}$ \\
+    \bottomrule
+    \end{tabular}
+    \end{table}
 
-\subsection{Loss Landscape Visualizations}\label{subsec:loss_analysis}
+Table~\ref{tab:algorithm_results} summarizes the performance of all algorithms after Langevin sampling optimization. The derivative algorithm achieved the lowest loss (28 errors, 90\% accuracy), providing an excellent balance between performance and interpretability. The ensemble algorithm should theoretically be capable of achieving the best performance, or at least performing as well as the derivative algorithm (which it can attain by identifying optimal derivative thresholds and zeroing out the weights for all other algorithms). However, it is possible that given the high dimensionality of the parameter space, the algorithm may not have found the global minimum.
 
-To visualize and compare the performance of the threshold and derivative algorithms, we employ two-dimensional grid search as a visualization tool. We compute loss per participant then aggregate: $L_{\text{combined}}(\theta) = \sum_{p=1}^{P} |10 - \text{detected\_jumps}_p(\theta)|$, preventing error cancellation across participants. While Langevin sampling serves as our primary optimization method, grid search provides valuable visual insights into algorithm behavior and enables direct comparison between the two approaches.
+For the derivative algorithm, Langevin sampling found optimal parameters: $\theta_{\text{upper}} = 17.71$, $\theta_{\text{lower}} = -15.19$, $\theta_{\text{air}} = 183.04$, with minimum flight time $t_{\min} = 0.19$ seconds and maximum flight time $t_{\max} = 0.60$ seconds, achieving a loss of 28 errors (90\% accuracy). In practice, to ensure that this algorithm is extendable to future datasets, the physics parameter range should be broadened to 0.2 seconds to 1.2 seconds, filtering out unrealistically short jumps and jumps with flight times beyond humanly possible. The loss landscape visualization, where only the upper and lower derivative threshold parameters were adjusted, shows a broad optimal region, indicating robustness to parameter variations. This suggests that the derivative algorithm may be suitable for deployment across diverse conditions. 
 
-Figure~\ref{fig:comparison_stacked} overlays both loss landscapes, showing the threshold algorithm (red) consistently achieves higher loss than the derivative algorithm (blue). Side views (Figures~\ref{fig:comparison_xz},~\ref{fig:comparison_yz}) and bottom views (Figure~\ref{fig:comparison_bottom}) confirm the derivative algorithm's superior performance with larger optimal regions, demonstrating its robustness across parameter variations.
+For the correlation algorithm, Langevin sampling found optimal parameters: buffer size $B = 33.4$, negative frames $w_{\text{neg}} = 18.2$, zero frames $w_{\text{zero}} = 7.2$, positive frames $w_{\text{pos}} = 5.2$, and correlation threshold $\theta_{\text{corr}} = 224.4$, achieving a loss of 103 errors (63\% accuracy). While in Figures~\ref{fig:threshold_unified},~\ref{fig:derivative_unified}, and~\ref{fig:correlation_unified} the correlation algorithm appeared to perform most optimally, on the larger dataset it was challenging for the algorithm to discover a more optimal fixed set of parameters that were generalizable across all jumps. Due to the large window size of the template region needed to accommodate different jump heights, the algorithm may be biased toward certain jump patterns. 
 
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.95\textwidth]{../results/plots/loss/comparison_stacked.png}
-\caption{Stacked comparison of loss landscapes. Threshold algorithm (red) consistently sits higher than derivative algorithm (blue), indicating worse performance.}
-\label{fig:comparison_stacked}
-\end{figure}
+Detailed performance metrics for each participant are provided in Table~\ref{tab:detection_results} (see Appendix).
 
-\begin{figure}[h]
+Figure~\ref{fig:grid_search_xz} shows the side view (XZ plane) of the loss landscapes, revealing the derivative algorithm's superior performance with lower loss values across the parameter space. The threshold algorithm consistently achieves higher loss than the derivative algorithm. The loss landscapes show clear concave structures with well-defined optimal regions, confirming that both algorithms are sensitive to their parameter choices.
+
+\FloatBarrier
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.95\textwidth]{../results/plots/loss/comparison_stacked_xz_view.png}
-\caption{Side view (XZ plane) of stacked loss landscapes.}
-\label{fig:comparison_xz}
+\caption{Two-dimensional grid search loss landscapes comparing threshold and derivative algorithms. Threshold: $\theta \in [30, 500]$, $\delta \in [0, 200]$ (60 values each); Derivative: $\theta_{\text{upper}} \in [0, 100]$, $\theta_{\text{lower}} \in [-100, 0]$ (60 values each). The side view (XZ plane) reveals the derivative algorithm's superior performance with lower loss values across the parameter space. Both landscapes show clear variation across parameter combinations, demonstrating the sensitivity of each algorithm to its respective parameters.}
+\label{fig:grid_search_xz}
 \end{figure}
+\FloatBarrier
+
+\subsection{Downstream Analysis}\label{subsec:downstream}
+
+Once jumps are reliably detected, we can extract precise boundaries and compute performance metrics. We refine jump boundaries using half-peak thresholding: for jump center $c$, find peaks $p_{\text{before}}$ and $p_{\text{after}}$ within $\pm 70$ frames, then locate boundaries where signal exceeds half-peak values. To improve the granularity of our 50Hz sampling, rather than flagging the discrete sample where the threshold is crossed, we linearly interpolate through neighboring points to calculate a more precise time of threshold crossing. These precisely detected takeoff and landing times enable the calculation of vertical jump height, flight time, and vertical takeoff velocity using kinematics. Given the mass of a jumper, the impulse can also be calculated. 
+
+For a detected jump with takeoff time $t_{\text{takeoff}}$ and landing time $t_{\text{landing}}$, we compute the following metrics:
+\begin{align}
+t_{\text{flight}} &= t_{\text{landing}} - t_{\text{takeoff}} \label{eq:flight_time} \\
+h &= \frac{1}{8} g t_{\text{flight}}^2 \label{eq:jump_height} \\
+v_{\text{takeoff}} &= \frac{1}{2} g t_{\text{flight}} \label{eq:takeoff_velocity} \\
+J &= m \cdot v_{\text{takeoff}} = \frac{1}{2} m g t_{\text{flight}} \label{eq:impulse}
+\end{align}
+where $g = 9.81$~m/s$^2$ is gravitational acceleration, $m$ is the jumper's mass, $h$ is jump height, $v_{\text{takeoff}}$ is vertical takeoff velocity, and $J$ is the impulse.
+
+Beyond individual jump analysis, automated detection enables longitudinal tracking and trend analysis. By storing detected jump data over time, we can monitor athlete progress, identify performance trends, and track evolution of key metrics. This capability transforms isolated measurements into actionable insights: trainers can observe how jump height improves over a training period, how contact time decreases with improved reactive strength, or how force production patterns evolve with technique refinement.
+
+To validate the accuracy of our mat-based flight time measurements, we compared them against video-based ground truth measurements. We analyzed 31 jumps with synchronized video recordings at 240~fps and mat sensor data. Video measurements were extracted using two methods: heel-to-heel flight time (from last heel contact at takeoff to first heel contact at landing) and toe-to-toe flight time (from last toe contact at takeoff to first toe contact at landing). Linear regression analysis revealed correlations between mat measurements and video measurements. The mat measurments straddle in between the toe-to-toe and heel-to-heel measurements, suggesting that the derivative thresholds trigger at a point between heel and toe contact on the ground.
+
+\FloatBarrier
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.65\textwidth]{video_mat_comparison.png}
+\caption{Comparison of video-based flight time measurements (heel-to-heel and toe-to-toe) versus mat sensor measurements. Linear regression lines are shown for each comparison, with R² values indicating the strength of correlation. The toe-to-toe measurements show stronger correlation (R² = 0.623) with mat measurements than heel-to-heel measurements (R² = 0.495).}
+\label{fig:video_mat_comparison}
+\end{figure}
+\FloatBarrier
+
+
+\subsection{Future Work}
+
+Future directions include: (1) extending to other movement tasks (sprints, change-of-direction) with task-specific parameter tuning; (2) adaptive parameter tuning based on real-time signal characteristics; and (3) multi-sensor fusion leveraging spatial force patterns.
+
+One interesting observation from our optimized parameters is that the lower derivative threshold ($\theta_{\text{lower}} = -15.19$) is smaller in magnitude than the upper threshold ($\theta_{\text{upper}} = 17.71$). This asymmetry is partially due to jump biomechanics: takeoff events must be more gradual than abrupt landings. However, a more likely contributing factor is the hysteresis and relaxation times of the dielectric layer used in the capacitive pressure plate sensor. This dielectric layer, composed of foam, can affect the response characteristics differently during compression (landing) versus decompression (takeoff). 
+
+Future work should integrate with research on selecting optimal dielectric materials and characterizing various foam compositions. By systematically evaluating different materials' hysteresis properties, relaxation times, and response characteristics, materials that minimize signal distortion and improve detection accuracy can be identified. This integration would enable optimal sensor design specifications that complement the algorithmic approach in this paper, ultimately achieving the best possible performance at the intersection of hardware and software optimization.
+
+\subsection{Real-World Deployment: Vault One}\label{subsec:vault_one}
+
+The framework has been deployed in Vault One, a mobile application for trainers and athletes. The derivative algorithm was selected as the final model based on its superior performance (28 errors) and interpretability. The optimized parameters are: $\theta_{\text{upper}} = 17.71$, $\theta_{\text{lower}} = -15.19$, $\theta_{\text{air}} = 183.04$, with $t_{\min} = 0.19$~s and $t_{\max} = 0.60$~s.
+
+\textbf{Implementation:} The algorithm was implemented in JavaScript for real-time processing. The $O(T)$ complexity enables real-time mobile deployment, allowing trainers and athletes to receive immediate feedback during training sessions (Figure~\ref{fig:vault_one_screenshot}).
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=0.95\textwidth]{../results/plots/loss/comparison_stacked_yz_view.png}
-\caption{Side view (YZ plane) of stacked loss landscapes.}
-\label{fig:comparison_yz}
-\end{figure}
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.95\textwidth]{../results/plots/loss/comparison_bottom_views.png}
-\caption{Bottom view comparison. Derivative algorithm (right) shows larger low-loss region (white/light blue) than threshold algorithm (left, dark red).}
-\label{fig:comparison_bottom}
-\end{figure}
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.95\textwidth]{../results/plots/loss/combined_loss_derivative_bottom_view.png}
-\caption{Derivative algorithm loss landscape showing optimal region (green) and selected parameters (green star).}
-\label{fig:derivative_bottom_view}
-\end{figure}
-
-\subsection{Detection Results and Summary Visualization}\label{subsec:detection_results}
-
-Figure~\ref{fig:summary_plot} visualizes all detected jumps across participants using the derivative algorithm, demonstrating consistent performance with precise boundaries. The algorithm's $O(T)$ complexity enables real-time mobile processing, demonstrating practical viability for automated sports science analysis.
-
-\subsection{Other Approaches Performance Summary}\label{subsec:other_performance}
-
-As detailed in Section~\ref{subsec:other_approaches}, we systematically evaluated several alternative approaches using the same loss function and Langevin sampling optimization. Table~\ref{tab:algorithm_comparison} in the Methods section summarizes their performance. The derivative algorithm achieved the lowest loss (28 errors, 90\% accuracy), providing an excellent balance between performance and interpretability, making it the preferred approach for our application. The ensemble algorithm achieved the second-lowest loss (30 errors), but its complexity and large parameter space (30+ parameters) make it less practical for deployment.
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.95\textwidth]{../results/plots/summary_plot.png}
-\caption{Summary visualization of all detected jumps across participants with precise boundaries highlighted.}
-\label{fig:summary_plot}
-\end{figure}
-
-\subsection{Downstream Analysis Examples}\label{subsec:downstream}
-
-We refine jump boundaries using half-peak thresholding: for jump center $c$, find peaks $p_{\text{before}}$ and $p_{\text{after}}$ within $\pm 70$ frames, then locate boundaries where signal exceeds half-peak values (Figure~\ref{fig:jump_snapshots}). PCA on 150-frame jump segments (Figure~\ref{fig:pca_results}) reveals participant-specific signatures, with PC1--PC2 capturing 60-70\% variance. An SVM classifier using four principal components achieves 85-95\% accuracy in jumper identification (Figure~\ref{fig:svm_confusion}), demonstrating the utility of automated detection for downstream analysis.
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.95\textwidth]{../results/plots/jump_snapshots.png}
-\caption{Jump snapshots showing initial detection windows (blue) and refined precise boundaries (yellow).}
-\label{fig:jump_snapshots}
-\end{figure}
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.95\textwidth]{../results/plots/pca_results.png}
-\caption{PCA of jump segments showing participant-specific clustering patterns.}
-\label{fig:pca_results}
-\end{figure}
-
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.95\textwidth]{../results/plots/svm_confusion.png}
-\caption{Confusion matrix for SVM classification of jumpers using PCA features.}
-\label{fig:svm_confusion}
+\includegraphics[width=0.6\textwidth]{storyPhotos/screenshot2.png}
+\caption{Vault One capacitive pressure plate with the derivative algorithm.}
+\label{fig:vault_one_screenshot}
 \end{figure}

@@ -37,8 +37,9 @@ from jump_detection.config import SAMPLING_RATE, DEFAULT_DATA_FILES
 from jump_detection.data import load_dataset
 from jump_detection.types import DetectionResult, Jump, DerivativeNames
 
-DERIVATIVE_UPPER_VALUES = np.linspace(0, 100, 40)  # Upper threshold: 0 to 100 (min is 0)
-DERIVATIVE_LOWER_VALUES = np.linspace(-100, 0, 40)  # Lower threshold: -100 to 0 (max is 0)
+# Ranges for derivative threshold values
+DERIVATIVE_UPPER_VALUES = np.linspace(0, 100, 60)  # Upper threshold: 0-100
+DERIVATIVE_LOWER_VALUES = np.linspace(-100, 0, 60)  # Lower threshold: -100-0
 # Reverse lower values so 0 is at bottom-left (descending order)
 DERIVATIVE_LOWER_VALUES_REVERSED = np.flip(DERIVATIVE_LOWER_VALUES)
 IN_AIR_THRESHOLD = 250  # Updated to match detailedplot2.py
@@ -178,6 +179,8 @@ def compute_loss_for_parameter_combination(
 ) -> float:
     """Compute loss for concatenated data with given parameters.
     
+    Uses the same code path as detect_derivative_jumps() but with raw data.
+    
     Args:
         concatenated_data: All sensor data concatenated vertically
         concatenated_markers: All annotation markers with offsets applied
@@ -187,21 +190,30 @@ def compute_loss_for_parameter_combination(
     Returns:
         Loss value (false_positives + false_negatives)
     """
+    # Create parameters exactly as the public API does
     params = DerivativeParameters(
         upper_threshold=upper_threshold,
         lower_threshold=lower_threshold,
         in_air_threshold=IN_AIR_THRESHOLD,
     )
     
-    # Run derivative pipeline directly on concatenated data
+    # Run derivative pipeline using the same code as detect_derivative_jumps()
     signals, jumps, metadata = _run_derivative_pipeline(concatenated_data, params)
     
-    # Create DetectionResult for compatibility with precise jump calculation
+    # Update metadata exactly as detect_derivative_jumps() does
+    metadata.update({
+        "parameters": params.as_dict(),
+        "export_paths": [],  # No file exports for concatenated data
+        "data_file_path": None,  # No file path for concatenated data
+    })
+    
+    # Create DetectionResult exactly as detect_derivative_jumps() does
+    pooled = signals[DerivativeNames.POOLED.value]
     result = DetectionResult(
         participant_name=None,
         sampling_rate=SAMPLING_RATE,
         raw_data=concatenated_data,
-        pooled_data=signals[DerivativeNames.POOLED.value],
+        pooled_data=pooled,
         signals=signals,
         jumps=jumps,
         metadata=metadata,

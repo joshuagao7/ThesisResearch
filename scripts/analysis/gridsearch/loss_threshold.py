@@ -37,8 +37,9 @@ from jump_detection.config import SAMPLING_RATE, DEFAULT_DATA_FILES
 from jump_detection.data import load_dataset
 from jump_detection.types import DetectionResult, Jump, ThresholdNames
 
-THRESHOLD_VALUES = np.linspace(90, 300, 40)
-DERIVATIVE_MAGNITUDE_VALUES = np.linspace(0, 100, 40)
+# Ranges for pooled sensor values (sum of all sensors)
+THRESHOLD_VALUES = np.linspace(30, 300, 60)  # Threshold range: 30 to 300
+DERIVATIVE_MAGNITUDE_VALUES = np.linspace(0, 100, 60)  # Derivative magnitude threshold range: 0 to 100
 
 # Get project root for path resolution
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -175,6 +176,8 @@ def compute_loss_for_parameter_combination(
 ) -> float:
     """Compute loss for concatenated data with given parameters.
     
+    Uses the same code path as detect_threshold_jumps() but with raw data.
+    
     Args:
         concatenated_data: All sensor data concatenated vertically
         concatenated_markers: All annotation markers with offsets applied
@@ -184,17 +187,26 @@ def compute_loss_for_parameter_combination(
     Returns:
         Loss value (false_positives + false_negatives)
     """
+    # Create parameters exactly as the public API does
     params = ThresholdParameters(threshold=threshold, derivative_threshold=derivative_threshold)
     
-    # Run threshold pipeline directly on concatenated data
+    # Run threshold pipeline using the same code as detect_threshold_jumps()
     signals, jumps, metadata = _run_threshold_pipeline(concatenated_data, params)
     
-    # Create DetectionResult for compatibility with precise jump calculation
+    # Update metadata exactly as detect_threshold_jumps() does
+    metadata.update({
+        "parameters": params.as_dict(),
+        "export_paths": [],  # No file exports for concatenated data
+        "data_file_path": None,  # No file path for concatenated data
+    })
+    
+    # Create DetectionResult exactly as detect_threshold_jumps() does
+    average = signals[ThresholdNames.AVERAGE.value]
     result = DetectionResult(
         participant_name=None,
         sampling_rate=SAMPLING_RATE,
         raw_data=concatenated_data,
-        pooled_data=signals[ThresholdNames.AVERAGE.value],
+        pooled_data=average,
         signals=signals,
         jumps=jumps,
         metadata=metadata,

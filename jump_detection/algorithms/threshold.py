@@ -133,19 +133,28 @@ def _run_threshold_pipeline(
         | (derivative < -parameters.derivative_threshold)
     ).astype(int)
 
+    # Apply physics constraints to threshold mask first
     physics_filtered = _apply_physics_constraints(
         threshold_mask,
         parameters.min_flight_time,
         parameters.max_flight_time,
     )
+    
+    # Validate detected segments: require derivative activity at boundaries
+    # This filters out false positives where force is low but there's no rapid change (not a jump)
+    validated_mask = _validate_segments_with_derivative(
+        physics_filtered,
+        derivative_binary,
+        boundary_window=5,  # Check ±5 frames around boundaries
+    )
 
-    jumps = _extract_jumps(physics_filtered)
+    jumps = _extract_jumps(validated_mask)
 
     signals = {
         ThresholdNames.RAW_DATA.value: raw_data,
         ThresholdNames.AVERAGE.value: average,
         ThresholdNames.THRESHOLD_MASK.value: threshold_mask,
-        ThresholdNames.PHYSICS_FILTERED.value: physics_filtered,
+        ThresholdNames.PHYSICS_FILTERED.value: validated_mask,
         ThresholdNames.DERIVATIVE.value: derivative,
         ThresholdNames.DERIVATIVE_BINARY.value: derivative_binary,
     }
@@ -171,6 +180,41 @@ def _apply_physics_constraints(
             filtered[start:end] = 0
 
     return filtered
+
+
+def _validate_segments_with_derivative(
+    mask: np.ndarray,
+    derivative_binary: np.ndarray,
+    boundary_window: int = 5,
+) -> np.ndarray:
+    """Validate detected segments by requiring derivative activity at boundaries.
+    
+    Args:
+        mask: Binary mask of detected segments
+        derivative_binary: Binary mask of significant derivative changes
+        boundary_window: Number of frames to check around segment boundaries
+        
+    Returns:
+        Validated mask with segments that have derivative activity at boundaries
+    """
+    validated = mask.copy()
+    
+    for start, end in _iter_segments(mask):
+        # Check for derivative activity near start boundary
+        start_window_start = max(0, start - boundary_window)
+        start_window_end = min(len(derivative_binary), start + boundary_window)
+        has_start_derivative = derivative_binary[start_window_start:start_window_end].any()
+        
+        # Check for derivative activity near end boundary
+        end_window_start = max(0, end - boundary_window)
+        end_window_end = min(len(derivative_binary), end + boundary_window)
+        has_end_derivative = derivative_binary[end_window_start:end_window_end].any()
+        
+        # Require derivative activity at at least one boundary
+        if not (has_start_derivative or has_end_derivative):
+            validated[start:end] = 0
+    
+    return validated
 
 
 def _extract_jumps(mask: np.ndarray) -> list[Jump]:

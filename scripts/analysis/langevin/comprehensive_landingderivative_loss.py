@@ -343,15 +343,15 @@ def random_initial_parameters() -> dict[str, float]:
 
 def perturb_parameters(
     params: dict[str, float],
+    param_to_perturb: str,
     step_sizes: dict[str, float] | None = None,
-    perturbation_prob: float = 0.3,
 ) -> dict[str, float]:
-    """Randomly perturb parameters using Langevin-style noise.
+    """Perturb a single parameter using Langevin-style noise.
     
     Args:
         params: Current parameter dictionary
+        param_to_perturb: Name of the parameter to perturb
         step_sizes: Dictionary of step sizes for each parameter (default: 5% of range)
-        perturbation_prob: Probability of perturbing each parameter independently
         
     Returns:
         New parameter dictionary with perturbations
@@ -369,16 +369,15 @@ def perturb_parameters(
     
     new_params = params.copy()
     
-    # Perturb each parameter independently with given probability
-    for param_name in new_params:
-        if random.random() < perturbation_prob:
-            # Add Gaussian noise scaled by step size
-            noise = np.random.normal(0, step_sizes[param_name])
-            new_value = new_params[param_name] + noise
-            
-            # Clip to bounds
-            min_val, max_val = PARAM_BOUNDS[param_name]
-            new_params[param_name] = np.clip(new_value, min_val, max_val)
+    # Perturb only the specified parameter
+    if param_to_perturb in new_params:
+        # Add Gaussian noise scaled by step size
+        noise = np.random.normal(0, step_sizes[param_to_perturb])
+        new_value = new_params[param_to_perturb] + noise
+        
+        # Clip to bounds
+        min_val, max_val = PARAM_BOUNDS[param_to_perturb]
+        new_params[param_to_perturb] = np.clip(new_value, min_val, max_val)
     
     # Ensure min_flight_time < max_flight_time
     if new_params["min_flight_time"] >= new_params["max_flight_time"]:
@@ -407,12 +406,12 @@ def langevin_sampling(
     temperature: float = 1.0,
     temperature_decay: float = 0.9995,
     step_sizes: dict[str, float] | None = None,
-    perturbation_prob: float = 0.3,
     show_progress: bool = True,
 ) -> tuple[list[dict], dict]:
     """Langevin-inspired sampling strategy for parameter optimization.
     
     Uses Metropolis-Hastings acceptance criterion with temperature schedule.
+    Parameters are perturbed sequentially, cycling through all parameters.
     
     Args:
         concatenated_data: All sensor data concatenated vertically
@@ -422,7 +421,6 @@ def langevin_sampling(
         temperature: Initial temperature for acceptance probability
         temperature_decay: Temperature decay factor per iteration
         step_sizes: Step sizes for each parameter (default: 5% of range)
-        perturbation_prob: Probability of perturbing each parameter
         show_progress: Whether to show progress updates
         
     Returns:
@@ -472,12 +470,18 @@ def langevin_sampling(
         print(f"Initial temperature: {temperature:.4f}")
         print()
     
+    # Get parameter names for sequential cycling
+    param_names = list(current_params.keys())
+    
     for iteration in range(1, n_iterations + 1):
-        # Perturb parameters
+        # Select parameter to perturb sequentially (cycle through all parameters)
+        param_to_perturb = param_names[iteration % len(param_names)]
+        
+        # Perturb the selected parameter
         proposed_params = perturb_parameters(
             current_params,
+            param_to_perturb=param_to_perturb,
             step_sizes=step_sizes,
-            perturbation_prob=perturbation_prob,
         )
         
         # Compute loss for proposed parameters
